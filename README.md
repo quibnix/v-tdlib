@@ -59,6 +59,9 @@ A V-language wrapper for the [TDLib](https://core.telegram.org/tdlib) Telegram c
 - [Moderation](#moderation)
 - [Chat member queries](#chat-member-queries)
 - [Chat folders](#chat-folders)
+- [Scheduled messages](#scheduled-messages)
+- [Forum topics](#forum-topics)
+- [Translation](#translation)
 - [Search](#search)
 - [Inline queries (bots)](#inline-queries-bots)
 - [Callback queries (bots)](#callback-queries-bots)
@@ -94,6 +97,9 @@ A V-language wrapper for the [TDLib](https://core.telegram.org/tdlib) Telegram c
   - [ChatMember](#chatmember)
   - [ChatFolderInfo](#chatfolderinfo)
   - [ChatFolder](#chatfolder)
+  - [ForumTopicInfo](#forumtopicinfo)
+  - [ForumTopic](#forumtopic)
+  - [TranslatedText](#translatedtext)
   - [Proxy](#proxy)
   - [BotInfo](#botinfo)
 - [Builder and low-level helpers](#builder-and-low-level-helpers)
@@ -216,7 +222,7 @@ user.login('+12025550100')!
 
 ### Custom login handlers
 
-Use `login_custom` to supply all credentials without touching stdin — useful for GUI apps and automated test suites.
+Use `login_custom` to supply all credentials without touching stdin - useful for GUI apps and automated test suites.
 
 **Bot:**
 
@@ -301,6 +307,7 @@ bot.reply_markdown(chat_id, reply_to_message_id, '_Understood_')!
 | `reply_to_message_id` | `i64` | Message to reply to. `0` means no reply. |
 | `silent` | `bool` | Suppress the notification sound for the recipient. |
 | `protect_content` | `bool` | Disable forwarding and saving for recipients. |
+| `message_thread_id` | `i64` | Forum topic thread ID for sending into a topic. `0` means no topic. See [Forum topics](#forum-topics). |
 
 ```v
 opts := tdlib.SendOptions{
@@ -401,7 +408,7 @@ bot.send_sticker_opts(chat_id, tdlib.input_remote(remote_id), tdlib.StickerSendO
 
 ### Albums
 
-Send 2–10 photos or videos as a single grouped album:
+Send 2-10 photos or videos as a single grouped album:
 
 ```v
 items := [
@@ -687,7 +694,7 @@ tdlib.input_remote(remote_id)           // reference by Telegram remote ID strin
 
 ### Downloading files
 
-**Asynchronous** — register a handler for progress, then start the download:
+**Asynchronous** - register a handler for progress, then start the download:
 
 ```v
 bot.on('updateFile', fn (upd json2.Any) {
@@ -701,7 +708,7 @@ bot.on('updateFile', fn (upd json2.Any) {
 bot.download(file_id, 16)!   // priority 1 (lowest) .. 32 (highest)
 ```
 
-**Synchronous** — blocks until fully on disk, no handler needed:
+**Synchronous** - blocks until fully on disk, no handler needed:
 
 ```v
 f := bot.download_sync(file_id, 16)!
@@ -1048,6 +1055,159 @@ println(link)           // https://t.me/addlist/...
 
 ---
 
+## Scheduled messages
+
+Messages can be held back and delivered at a specified Unix timestamp. Scheduled messages appear in the chat's "Scheduled Messages" list until sent or cancelled. All content types (text, photos, documents) support scheduling.
+
+```v
+// Schedule a plain-text message to go out in one hour.
+send_date := tdlib.unix_now() + 3600
+user.send_scheduled_text(chat_id, 'See you in an hour!', send_date, tdlib.SendOptions{})!
+
+// Schedule an HTML message.
+user.send_scheduled_html(chat_id, '<b>Reminder:</b> meeting at 3pm', send_date, tdlib.SendOptions{})!
+
+// Schedule a photo.
+user.send_scheduled_photo(chat_id, tdlib.input_local('/tmp/banner.jpg'), 'Launching soon!',
+    send_date, tdlib.SendOptions{})!
+
+// List all pending scheduled messages in a chat.
+msgs := user.get_scheduled_messages(chat_id)!
+for m in msgs {
+    println('Scheduled: ${m.text()}')
+}
+
+// Deliver a specific scheduled message right now.
+user.send_scheduled_message_now(chat_id, msgs[0].id())!
+
+// Deliver every pending scheduled message in the chat immediately.
+user.send_all_scheduled_now(chat_id)!
+
+// Cancel (delete without sending) one or more scheduled messages.
+user.delete_scheduled_messages(chat_id, [msgs[0].id()])!
+```
+
+Scheduled messages are available on both `UserAccount` and `BotAccount`.
+
+| Method | Returns | Description |
+|---|---|---|
+| `send_scheduled_text(chat_id, text, send_date, opts)` | `!json2.Any` | Schedule a plain-text message. |
+| `send_scheduled_html(chat_id, html, send_date, opts)` | `!json2.Any` | Schedule an HTML-formatted message. |
+| `send_scheduled_markdown(chat_id, md, send_date, opts)` | `!json2.Any` | Schedule a MarkdownV2 message. |
+| `send_scheduled_photo(chat_id, file, caption, send_date, opts)` | `!json2.Any` | Schedule a photo. |
+| `send_scheduled_document(chat_id, file, caption, send_date, opts)` | `!json2.Any` | Schedule a document. |
+| `get_scheduled_messages(chat_id)` | `![]Message` | List all pending scheduled messages. |
+| `send_scheduled_message_now(chat_id, message_id)` | `!json2.Any` | Deliver a scheduled message immediately. |
+| `send_all_scheduled_now(chat_id)` | `!` | Deliver every pending scheduled message immediately. |
+| `delete_scheduled_messages(chat_id, message_ids)` | `!json2.Any` | Cancel scheduled messages without sending. |
+
+---
+
+## Forum topics
+
+Forum topics are named threads inside supergroups that have the "Topics" feature enabled. Each topic is identified by a `message_thread_id`. Pass this ID in `SendOptions.message_thread_id` to send messages to the topic.
+
+### Creating and sending to a topic
+
+```v
+// Create a new topic with a built-in colour icon.
+// Allowed icon_color values: 0x6FB9F0 (blue), 0xFFD67E (yellow), 0xCB86DB (violet),
+// 0x8EEE98 (green), 0xFF93B2 (rose), 0xFB6F5F (red). Pass 0 to let Telegram choose.
+info := user.create_forum_topic(chat_id, 'Announcements', 0x6FB9F0, '')!
+thread_id := info.message_thread_id()
+
+// Send a message inside the topic.
+user.send_text_opts(chat_id, 'Welcome to Announcements!',
+    tdlib.SendOptions{ message_thread_id: thread_id })!
+
+// Send HTML into a topic.
+user.send_html_opts(chat_id, '<b>First post</b>',
+    tdlib.SendOptions{ message_thread_id: thread_id })!
+```
+
+### Managing topics
+
+```v
+// List the first 20 topics (pass zeroes for the initial page).
+topics := user.get_forum_topics(chat_id, '', 0, 0, 0, 20)!
+for t in topics {
+    info := t.info()
+    println('${info.name()} thread=${info.message_thread_id()} closed=${info.is_closed()}')
+}
+
+// Get a single topic by thread ID.
+topic := user.get_forum_topic(chat_id, thread_id)!
+println('Unread: ${topic.unread_count()}')
+
+// Rename a topic.
+user.edit_forum_topic(chat_id, thread_id, 'Important Announcements', '')!
+
+// Read the message history of a topic.
+msgs := user.get_forum_topic_history(chat_id, thread_id, 0, 50)!
+
+// Close (archive) a topic - no new messages can be posted.
+user.close_forum_topic(chat_id, thread_id)!
+
+// Re-open a closed topic.
+user.reopen_forum_topic(chat_id, thread_id)!
+
+// Pin a topic at the top of the forum list.
+user.pin_forum_topic(chat_id, thread_id, true)!
+
+// Hide the built-in General topic (supergroup owners only).
+user.hide_general_forum_topic(chat_id, true)!
+
+// Permanently delete a topic and all its messages.
+user.delete_forum_topic(chat_id, thread_id)!
+```
+
+Forum topics are available on both `UserAccount` and `BotAccount` (bots require `can_manage_topics` admin right for most management operations).
+
+| Method | Returns | Description |
+|---|---|---|
+| `create_forum_topic(chat_id, name, icon_color, icon_custom_emoji_id)` | `!ForumTopicInfo` | Create a new topic. |
+| `edit_forum_topic(chat_id, thread_id, name, icon_custom_emoji_id)` | `!json2.Any` | Rename or change the icon of a topic. |
+| `close_forum_topic(chat_id, thread_id)` | `!json2.Any` | Archive a topic. |
+| `reopen_forum_topic(chat_id, thread_id)` | `!json2.Any` | Un-archive a topic. |
+| `delete_forum_topic(chat_id, thread_id)` | `!json2.Any` | Delete a topic and all its messages. |
+| `pin_forum_topic(chat_id, thread_id, is_pinned)` | `!json2.Any` | Pin or unpin a topic. |
+| `hide_general_forum_topic(chat_id, hide)` | `!json2.Any` | Hide or show the General topic. |
+| `get_forum_topics(chat_id, query, offset_date, offset_msg_id, offset_thread_id, limit)` | `![]ForumTopic` | Paginated topic list. |
+| `get_forum_topic(chat_id, thread_id)` | `!ForumTopic` | Get details of a single topic. |
+| `get_forum_topic_history(chat_id, thread_id, from_message_id, limit)` | `![]Message` | Message history of a topic. |
+
+---
+
+## Translation
+
+Translate text strings or existing messages to any target language using Telegram's built-in translation service. Language detection is automatic; only the target language code is needed.
+
+Language codes follow [IETF BCP 47](https://en.wikipedia.org/wiki/IETF_language_tag): `'en'`, `'fr'`, `'de'`, `'ja'`, `'zh-CN'`, etc.
+
+```v
+// Translate an arbitrary string.
+result := user.translate_text('Bonjour le monde', 'en')!
+println(result.text())  // Hello world
+
+// Translate an existing message (identified by chat_id + message_id).
+translated := bot.translate_message(msg.chat_id(), msg.id(), 'en')!
+println(translated.text())
+
+// Check whether the result contains formatting entities.
+if translated.has_entities() {
+    // Work with translated.entities_raw() for rich text rendering.
+}
+```
+
+Translation is available on both `UserAccount` and `BotAccount`. User accounts require Telegram Premium for `translate_text` and `translate_message`. Bots do not require Premium.
+
+| Method | Returns | Description |
+|---|---|---|
+| `translate_text(text, to_language_code)` | `!TranslatedText` | Translate a plain string. |
+| `translate_message(chat_id, message_id, to_language_code)` | `!TranslatedText` | Translate the text of an existing message. |
+
+---
+
 ## Search
 
 ```v
@@ -1201,7 +1361,7 @@ user.delete_profile_photo(photo_id)!  // photo_id from get_user_profile_photos()
 
 ## AccountManager
 
-`AccountManager` runs many accounts over a single shared TDLib hub. Update routing is automatic — handlers on one account never fire for another.
+`AccountManager` runs many accounts over a single shared TDLib hub. Update routing is automatic - handlers on one account never fire for another.
 
 ```v
 mut mgr := tdlib.AccountManager.new()
@@ -1613,6 +1773,46 @@ cf.include_non_contacts()   // bool
 cf.include_bots()           // bool
 cf.include_groups()         // bool
 cf.include_channels()       // bool
+```
+
+### ForumTopicInfo
+
+Summary of a forum topic returned by `create_forum_topic()` and embedded in `ForumTopic.info()`.
+
+```v
+fi.message_thread_id()      // i64    - use as SendOptions.message_thread_id
+fi.name()                   // string
+fi.creation_date()          // i64
+fi.is_closed()              // bool
+fi.is_hidden()              // bool
+fi.is_pinned()              // bool
+fi.is_outgoing()            // bool   - true if the current account created this topic
+fi.icon_color()             // int    - ARGB colour of the built-in icon
+fi.icon_custom_emoji_id()   // i64    - custom emoji icon document ID (0 if using built-in)
+fi.creator_user_id()        // i64    - 0 for anonymous/chat senders
+```
+
+### ForumTopic
+
+Full topic object returned by `get_forum_topics()` and `get_forum_topic()`.
+
+```v
+ft.info()                   // ForumTopicInfo
+ft.is_pinned()              // bool
+ft.unread_count()           // int
+ft.unread_mention_count()   // int
+ft.unread_reaction_count()  // int
+ft.last_message()           // ?Message
+```
+
+### TranslatedText
+
+Result of `translate_text()` and `translate_message()`.
+
+```v
+tt.text()           // string        - the translated plain text
+tt.has_entities()   // bool          - true when formatting entities are present
+tt.entities_raw()   // []json2.Any   - raw textEntity array for rich rendering
 ```
 
 ### Proxy
