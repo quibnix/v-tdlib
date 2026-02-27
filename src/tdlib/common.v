@@ -99,6 +99,10 @@ pub:
 	reply_to_message_id i64  // 0 = no reply
 	silent              bool // suppress notification for recipient
 	protect_content     bool // disable forwarding and saving
+	// message_thread_id is the forum topic thread ID for supergroup topics (0 = no topic).
+	// Obtain this from ForumTopicInfo.message_thread_id() after calling create_forum_topic()
+	// or get_forum_topics().
+	message_thread_id i64
 }
 
 fn send_text_message(s Session, mut td TDLib, chat_id i64, text string, opts SendOptions) !json2.Any {
@@ -1096,6 +1100,9 @@ fn forward_message_with_markup(s Session, mut td TDLib, to_chat_id i64, from_cha
 fn dispatch_send_message(s Session, mut td TDLib, chat_id i64, content json2.Any, opts SendOptions, markup json2.Any) !json2.Any {
 	mut req := new_request('sendMessage').with_i64('chat_id', chat_id).with('input_message_content',
 		content)
+	if opts.message_thread_id != 0 {
+		req = req.with_i64('message_thread_id', opts.message_thread_id)
+	}
 	if opts.silent || opts.protect_content {
 		req = req.with_obj('options', {
 			'@type':                json2.Any('messageSendOptions')

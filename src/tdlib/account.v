@@ -853,3 +853,126 @@ pub fn (mut u UserAccount) create_chat_folder_invite_link(chat_folder_id int, na
 	return create_chat_folder_invite_link(u.session, mut *u.td, chat_folder_id, name,
 		chat_ids)
 }
+
+// --- Scheduled messages ---
+
+// send_scheduled_text schedules a plain-text message for delivery at send_date (Unix timestamp).
+pub fn (mut u UserAccount) send_scheduled_text(chat_id i64, text string, send_date i64, opts SendOptions) !json2.Any {
+	return send_scheduled_text(u.session, mut *u.td, chat_id, text, send_date, opts)
+}
+
+// send_scheduled_html schedules an HTML-formatted message for delivery at send_date.
+pub fn (mut u UserAccount) send_scheduled_html(chat_id i64, html string, send_date i64, opts SendOptions) !json2.Any {
+	return send_scheduled_html(u.session, mut *u.td, chat_id, html, send_date, opts)
+}
+
+// send_scheduled_markdown schedules a MarkdownV2-formatted message for delivery at send_date.
+pub fn (mut u UserAccount) send_scheduled_markdown(chat_id i64, md string, send_date i64, opts SendOptions) !json2.Any {
+	return send_scheduled_markdown(u.session, mut *u.td, chat_id, md, send_date, opts)
+}
+
+// send_scheduled_photo schedules a photo message for delivery at send_date.
+pub fn (mut u UserAccount) send_scheduled_photo(chat_id i64, input_file json2.Any, caption string, send_date i64, opts SendOptions) !json2.Any {
+	return send_scheduled_photo(u.session, mut *u.td, chat_id, input_file, caption, send_date,
+		opts)
+}
+
+// send_scheduled_document schedules a document message for delivery at send_date.
+pub fn (mut u UserAccount) send_scheduled_document(chat_id i64, input_file json2.Any, caption string, send_date i64, opts SendOptions) !json2.Any {
+	return send_scheduled_document(u.session, mut *u.td, chat_id, input_file, caption,
+		send_date, opts)
+}
+
+// get_scheduled_messages returns all pending scheduled messages in a chat.
+pub fn (mut u UserAccount) get_scheduled_messages(chat_id i64) ![]Message {
+	return get_scheduled_messages(u.session, mut *u.td, chat_id)
+}
+
+// send_scheduled_message_now delivers a scheduled message immediately.
+// message_id must come from get_scheduled_messages().
+pub fn (mut u UserAccount) send_scheduled_message_now(chat_id i64, message_id i64) !json2.Any {
+	return send_scheduled_message_now(u.session, mut *u.td, chat_id, message_id)
+}
+
+// send_all_scheduled_now delivers all pending scheduled messages in a chat immediately.
+pub fn (mut u UserAccount) send_all_scheduled_now(chat_id i64) ! {
+	send_all_scheduled_now(u.session, mut *u.td, chat_id)!
+}
+
+// delete_scheduled_messages cancels scheduled messages without sending them.
+pub fn (mut u UserAccount) delete_scheduled_messages(chat_id i64, message_ids []i64) !json2.Any {
+	return delete_scheduled_messages(u.session, mut *u.td, chat_id, message_ids)
+}
+
+// --- Forum topics ---
+
+// create_forum_topic creates a new topic in a forum supergroup.
+// icon_color: ARGB int (use one of the allowed values or 0 for auto).
+// icon_custom_emoji_id: custom emoji ID string, or '' for the built-in icon.
+// Returns ForumTopicInfo; use .message_thread_id() to send messages to the topic.
+pub fn (mut u UserAccount) create_forum_topic(chat_id i64, name string, icon_color int, icon_custom_emoji_id string) !ForumTopicInfo {
+	return create_forum_topic(u.session, mut *u.td, chat_id, name, icon_color, icon_custom_emoji_id)
+}
+
+// edit_forum_topic changes the name and/or custom emoji icon of an existing topic.
+pub fn (mut u UserAccount) edit_forum_topic(chat_id i64, message_thread_id i64, name string, icon_custom_emoji_id string) !json2.Any {
+	return edit_forum_topic(u.session, mut *u.td, chat_id, message_thread_id, name, icon_custom_emoji_id)
+}
+
+// close_forum_topic archives a topic so no new messages can be posted.
+pub fn (mut u UserAccount) close_forum_topic(chat_id i64, message_thread_id i64) !json2.Any {
+	return close_forum_topic(u.session, mut *u.td, chat_id, message_thread_id)
+}
+
+// reopen_forum_topic re-opens a previously closed topic.
+pub fn (mut u UserAccount) reopen_forum_topic(chat_id i64, message_thread_id i64) !json2.Any {
+	return reopen_forum_topic(u.session, mut *u.td, chat_id, message_thread_id)
+}
+
+// delete_forum_topic permanently deletes a topic and all of its messages.
+pub fn (mut u UserAccount) delete_forum_topic(chat_id i64, message_thread_id i64) !json2.Any {
+	return delete_forum_topic(u.session, mut *u.td, chat_id, message_thread_id)
+}
+
+// pin_forum_topic pins or unpins a topic in the forum list.
+pub fn (mut u UserAccount) pin_forum_topic(chat_id i64, message_thread_id i64, is_pinned bool) !json2.Any {
+	return pin_forum_topic(u.session, mut *u.td, chat_id, message_thread_id, is_pinned)
+}
+
+// hide_general_forum_topic hides or shows the "General" topic (thread_id=1).
+pub fn (mut u UserAccount) hide_general_forum_topic(chat_id i64, hide bool) !json2.Any {
+	return hide_general_forum_topic(u.session, mut *u.td, chat_id, hide)
+}
+
+// get_forum_topics returns a paginated list of topics in a forum supergroup.
+// Pass all offset arguments as 0 for the first page.
+pub fn (mut u UserAccount) get_forum_topics(chat_id i64, query string, offset_date i64, offset_message_id i64, offset_message_thread_id i64, limit int) ![]ForumTopic {
+	return get_forum_topics(u.session, mut *u.td, chat_id, query, offset_date, offset_message_id,
+		offset_message_thread_id, limit)
+}
+
+// get_forum_topic returns the details of a single topic by its thread ID.
+pub fn (mut u UserAccount) get_forum_topic(chat_id i64, message_thread_id i64) !ForumTopic {
+	return get_forum_topic(u.session, mut *u.td, chat_id, message_thread_id)
+}
+
+// get_forum_topic_history returns messages from a specific forum topic.
+// from_message_id: 0 to start from the most recent message.
+pub fn (mut u UserAccount) get_forum_topic_history(chat_id i64, message_thread_id i64, from_message_id i64, limit int) ![]Message {
+	return get_forum_topic_history(u.session, mut *u.td, chat_id, message_thread_id, from_message_id,
+		limit)
+}
+
+// --- Translation ---
+
+// translate_text translates a plain string to the target language.
+// to_language_code: IETF BCP 47 code (e.g. 'en', 'fr', 'de', 'ja').
+// Returns a TranslatedText with the translation result.
+pub fn (mut u UserAccount) translate_text(text string, to_language_code string) !TranslatedText {
+	return translate_text(u.session, mut *u.td, text, to_language_code)
+}
+
+// translate_message translates the text of an existing message to the target language.
+pub fn (mut u UserAccount) translate_message(chat_id i64, message_id i64, to_language_code string) !TranslatedText {
+	return translate_message(u.session, mut *u.td, chat_id, message_id, to_language_code)
+}
