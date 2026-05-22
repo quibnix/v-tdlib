@@ -6,7 +6,7 @@ Expect bugs, missing features, and occasional breaking changes.
 We're working hard to stabilize it, and your feedback, bug reports,
 and contributions are highly appreciated.
 ---
-A V-language wrapper for the [TDLib](https://core.telegram.org/tdlib) Telegram client library.
+A V language wrapper for the [TDLib](https://core.telegram.org/tdlib) Telegram client library.
 Supports both full user accounts (userbot) and bot token accounts simultaneously, with typed
 helpers for every common message and media type, complete keyboard support, proxy management,
 file transfers, chat folder management, and a set of utility functions.
