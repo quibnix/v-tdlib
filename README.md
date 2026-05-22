@@ -5,21 +5,20 @@
 Expect bugs, missing features, and occasional breaking changes.
 We're working hard to stabilize it, and your feedback, bug reports,
 and contributions are highly appreciated.
-
+---
 A V-language wrapper for the [TDLib](https://core.telegram.org/tdlib) Telegram client library.
 Supports both full user accounts (userbot) and bot token accounts simultaneously, with typed
 helpers for every common message and media type, complete keyboard support, proxy management,
 file transfers, chat folder management, and a set of utility functions.
 
-
-We built bindings for TDLib instead of reimplementing the library from scratch
-because TDLib is an enormous, battle-tested codebase—millions of lines of C++
-refined over years—that handles the entire complexity of Telegram's protocol,
-encryption, networking, and local storage. A faithful reimplementation would
-take thousands of hours, introduce countless bugs, and require ongoing
-maintenance to keep up with Telegram's frequent updates. By creating bindings,
-we reuse TDLib's rock-solid logic directly, achieving full functionality
-with minimal effort and zero risk of subtle protocol mistakes.
+We built low-level bindings to TDLib and wrapped them in a high-level, idiomatic V API.
+We chose this approach instead of reimplementing the library from scratch because TDLib
+is an enormous, battle-tested codebase—millions of lines of C++ refined over years—that
+handles the entire complexity of Telegram's protocol, encryption, networking, and local
+storage. A faithful reimplementation would take thousands of hours, introduce countless
+bugs, and require ongoing maintenance to keep up with Telegram's frequent updates.
+By creating bindings, we reuse TDLib's rock-solid logic directly, achieving full
+functionality with minimal effort and zero risk of subtle protocol mistakes.
 
 
 ## Table of Contents
