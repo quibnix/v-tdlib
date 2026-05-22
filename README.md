@@ -142,10 +142,7 @@ functionality with minimal effort and zero risk of subtle protocol mistakes.
   - [Adding a New API Method](#adding-a-new-api-method)
   - [Code Style Guidelines](#code-style-guidelines)
   - [JSON Handling](#json-handling)
-  - [Areas That Need Work](#areas-that-need-work)
   - [Testing](#testing)
-  - [Submitting Changes](#submitting-changes)
-
 ---
 
 ## Requirements
