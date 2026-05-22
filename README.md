@@ -1,11 +1,12 @@
 # v-tdlib
 
-
 **This library is still under development.**
 Expect bugs, missing features, and occasional breaking changes.
 We're working hard to stabilize it, and your feedback, bug reports,
 and contributions are highly appreciated.
+
 ---
+
 A V language wrapper for the [TDLib](https://core.telegram.org/tdlib) Telegram client library.
 Supports both full user accounts (userbot) and bot token accounts simultaneously, with typed
 helpers for every common message and media type, complete keyboard support, proxy management,
@@ -135,6 +136,15 @@ functionality with minimal effort and zero risk of subtle protocol mistakes.
   - [Rate limiting](#rate-limiting)
 - [Channel ID semantics](#channel-id-semantics)
 - [Log verbosity](#log-verbosity)
+- [Developer Guide for Contributors](#developer-guide-for-contributors)
+  - [Understanding the Codebase](#understanding-the-codebase)
+  - [How TDLib Integration Works](#how-tdlib-integration-works)
+  - [Adding a New API Method](#adding-a-new-api-method)
+  - [Code Style Guidelines](#code-style-guidelines)
+  - [JSON Handling](#json-handling)
+  - [Areas That Need Work](#areas-that-need-work)
+  - [Testing](#testing)
+  - [Submitting Changes](#submitting-changes)
 
 ---
 
@@ -148,11 +158,25 @@ functionality with minimal effort and zero risk of subtle protocol mistakes.
 
 ## Installation
 
-Copy the `tdlib/` directory into your project and import the module:
+Copy `tdlib` into your project and import the module:
 
 ```v
 import tdlib
 ```
+
+### File Organization
+
+The library is a single, well-organized file with five logical sections:
+
+1. **Core Types & TDLib Hub** — Handler type, Session, TDLib struct, lifecycle methods, handler registration, low-level messaging (send, send_sync, send_fire), and internal receiver goroutine.
+
+2. **Utilities & Helpers** — Formatting (bytes, duration, counts), string manipulation, text processing, bot command parsing, time utilities, Telegram-specific helpers (mentions, hashtags, validation), fuzzy matching, and rate limiting.
+
+3. **User Account** — UserAccount struct and all methods for authenticating and interacting as a full user account.
+
+4. **Bot Account** — BotAccount struct and all methods for authenticating and interacting as a bot token account.
+
+5. **Account Manager** — AccountManager for managing multiple accounts (users and bots) over a single shared TDLib hub.
 
 ---
 
@@ -1450,6 +1474,198 @@ resp := bot.raw_send_sync(req)!
 m    := resp.as_map()
 ```
 
+---
+
+## Developer Guide for Contributors
+
+### Understanding the Codebase
+
+The library is organized into five logical sections in `tdlib.v`.
+Each section is marked with a clear header (`// =================================================================`).
+
+#### Core Types & TDLib Hub
+
+The heart of the library. Contains:
+- `Handler` type: callback signature for update handlers
+- `Session`: thin wrapper around TDLib client_id
+- `TDLib`: the main hub managing C interop, session state, and update routing
+
+Key functions to understand:
+- `new()`: Creates and starts the hub with background receiver goroutine
+- `shutdown()`: Gracefully stops all sessions
+- `on() / off()`: Registers/unregisters typed update handlers
+- `send() / send_sync() / send_fire()`: Low-level request dispatching
+- `start_receiver() / receiver_loop()`: Background goroutine handling TDLib responses
+
+**Critical design:** Every registered handler runs in its own goroutine, making it safe to call synchronous API methods inside handlers. The receiver uses UUID-tagged channels for request-response matching, allowing many goroutines to issue concurrent requests safely.
+
+#### Utilities & Helpers
+
+Pure functions with no side effects. Divided by category:
+
+- **Formatting:** `fmt_bytes()`, `fmt_duration()`, `fmt_count()`
+- **String manipulation:** `truncate()`, `smart_truncate()`, `chunks()`, `word_wrap()`, `strip_html()`
+- **Text escaping:** `escape_html()`, `escape_markdown()` (critical for safe message sending)
+- **Command parsing:** `parse_command()` parses bot commands with args
+- **Time:** `unix_now()`, `unix_to_date()`, `relative_time()`, `plural()`
+- **Telegram helpers:** `normalize_mention()`, `extract_mentions()`, `extract_hashtags()`, `is_valid_username()`, `is_valid_command()`
+- **Fuzzy matching:** `levenshtein()`, `closest_command()` for typo correction
+- **Rate limiting:** `RateLimiter` struct for throttling per-user actions
+- **Type extractors:** `map_str()`, `map_i64()`, `map_int()`, `map_bool()`, `map_arr()`, `map_obj()` for safe JSON extraction
+
+#### User Account
+
+All methods for full user account authentication and interaction. Organized by functional area:
+
+- **Constructors:** `UserAccount.new()`, `UserAccount.new_shared()`
+- **Lifecycle:** `setup()`, `shutdown()`
+- **Authentication:** `login()`, `login_custom()`
+- **Update routing:** `on()`, `off()`, `get_update()`
+- **Message sending:** `send_text()`, `send_html()`, `send_markdown()`, `send_photo()`, etc.
+- **Message editing:** `edit_text()`, `edit_html()`, `edit_markdown()`
+- **Chat management:** `get_chat()`, `set_chat_title()`, `set_chat_photo()`, etc.
+- **Member queries:** `get_chat_members()`, `get_chat_member()`, `get_user_full_info()`
+- **File operations:** `download_file()`, `upload_file()`
+- **Advanced:** `translate_text()`, `translate_message()`, chat folders, forum topics, proxies
+
+#### Bot Account
+
+All methods for bot token authentication and interaction. Structure mirrors UserAccount:
+
+- **Bot-specific methods:** `get_me()`, `set_menu_button()`, `get_bot_info()`, `answer_inline_query()`, `answer_callback_query()`
+- **Most other methods are identical to UserAccount** (sending messages, managing chats, file operations, etc.)
+- Contains both shared methods (delegated to internal functions) and bot-specific behavior
+
+#### Account Manager
+High-level convenience for managing multiple accounts over a single shared TDLib hub:
+
+- `AccountManager.new()`: Creates a manager with shared TDLib
+- `add_user() / add_bot()`: Register named accounts
+- `user() / bot()`: Retrieve accounts by name
+- `shutdown()`: Gracefully shut down all sessions
+
+### How TDLib Integration Works
+
+1. **C FFI**: Four C function declarations for TDLib interop:
+   - `td_create_client_id()`: Allocates a new session
+   - `td_send()`: Dispatches a JSON request
+   - `td_receive()`: Blocks waiting for a response (timeout in seconds)
+   - `td_execute()`: Synchronous-only operations
+
+2. **Request format:** All requests are JSON objects with `@type` field. The library builds these using `RequestBuilder` or helper functions like `send_text()`.
+
+3. **Response handling:** TDLib returns responses with matching `@extra` field. The receiver loop matches these back to the originating `send()` call via UUID-keyed channels.
+
+4. **Update dispatch:** When TDLib sends an update (e.g., `updateNewMessage`), the receiver checks if a handler is registered. If yes, it runs the handler in a fresh goroutine. If no, it queues the update in the session's update channel.
+
+### Adding a New API Method
+
+Let's say you want to add support for a TDLib API call that's not yet wrapped. Here's the process:
+
+#### Example: Adding `getMe()` for users (already done, but shows the pattern)
+
+1. **Check TDLib documentation** at https://core.telegram.org/tdlib/docs — find the method name, parameters, and response type.
+
+2. **Create an internal function** (shared by both UserAccount and BotAccount):
+```v
+fn get_me(session Session, mut td TDLib) !User {
+    mut req := new_request('getMe')
+    resp := session.send_sync(mut td, req.build()!)!
+    return User.from(resp.as_map())
+}
+```
+
+3. **Add methods to both account types:**
+
+In UserAccount section:
+```v
+pub fn (mut u UserAccount) get_me() !User {
+    return get_me(u.session, mut *u.td)
+}
+```
+
+In BotAccount section:
+```v
+pub fn (mut b BotAccount) get_me() !User {
+    return get_me(b.session, mut *b.td)
+}
+```
+
+4. **Create or extend a type** if needed. For example, `User` should have a `.from()` method to construct from JSON:
+```v
+pub fn User.from(m map[string]json2.Any) User {
+    return User{
+        id: map_i64(m, 'id')
+        is_bot: map_bool(m, 'is_bot')
+        // ... extract other fields
+    }
+}
+```
+
+5. **Add a section header** in the appropriate account section:
+```v
+// --- User profile management ---
+```
+
+6. **Test it** by calling the method in a test script and checking the result.
+
+### Code Style Guidelines
+
+- **Naming:** Use snake_case for functions and variables. Public types use PascalCase.
+- **Error handling:** Use `!` return type for operations that can fail. Return `error('...')` with clear messages.
+- **Comments:** Only add comments that explain *why* or *how to use*. Don't comment obvious code.
+- **Conciseness:** Prefer short, clear functions over long ones. Use helper functions for repeated patterns.
+- **Thread safety:** All TDLib methods use `td.mutex.lock()` to protect shared state.
+
+### JSON Handling
+
+The library uses V's `x.json2` module. Common patterns:
+
+```v
+// Extract from map
+m := resp.as_map()
+id := map_i64(m, 'id')           // safe i64 extraction (returns 0 if missing)
+name := map_str(m, 'name')       // safe string extraction (returns '' if missing)
+sub := map_obj(m, 'nested_obj')  // safe nested object extraction
+
+// Build requests
+mut req := new_request('sendMessage')
+    .with_i64('chat_id', chat_id)
+    .with_str('text', 'Hello')
+    .build()!
+
+// Construct JSON values
+mut map := map[string]json2.Any{}
+map['@type'] = json2.Any('messageSendOptions')
+map['disable_notification'] = json2.Any(true)
+```
+
+
+### Testing
+
+1. Create a test file with a valid `api_id`, `api_hash`, and credentials
+2. Run it with `v run test.v`
+3. Verify the behavior matches expectations
+4. Check for memory leaks with tools like Valgrind
+
+Example test structure:
+```v
+import tdlib
+import os
+
+fn main() {
+    api_id := os.getenv('TG_API_ID').int()
+    api_hash := os.getenv('TG_API_HASH')
+    
+    mut bot := tdlib.BotAccount.new()!
+    defer { bot.shutdown() }
+    
+    bot.setup(api_id, api_hash, './data/bot')!
+    bot.login(os.getenv('BOT_TOKEN'))!
+    
+    // Test your changes here
+}
+```
 ---
 
 ## Type reference
