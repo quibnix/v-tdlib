@@ -1,8 +1,26 @@
 # v-tdlib
 
-A V-language wrapper for the [TDLib](https://core.telegram.org/tdlib) Telegram client library. Supports both full user accounts (userbot) and bot token accounts simultaneously, with typed helpers for every common message and media type, complete keyboard support, proxy management, file transfers, chat folder management, and a set of utility functions.
 
----
+**This library is still under development.**
+Expect bugs, missing features, and occasional breaking changes.
+We're working hard to stabilize it, and your feedback, bug reports,
+and contributions are highly appreciated.
+
+A V-language wrapper for the [TDLib](https://core.telegram.org/tdlib) Telegram client library.
+Supports both full user accounts (userbot) and bot token accounts simultaneously, with typed
+helpers for every common message and media type, complete keyboard support, proxy management,
+file transfers, chat folder management, and a set of utility functions.
+
+
+We built bindings for TDLib instead of reimplementing the library from scratch
+because TDLib is an enormous, battle-tested codebase—millions of lines of C++
+refined over years—that handles the entire complexity of Telegram's protocol,
+encryption, networking, and local storage. A faithful reimplementation would
+take thousands of hours, introduce countless bugs, and require ongoing
+maintenance to keep up with Telegram's frequent updates. By creating bindings,
+we reuse TDLib's rock-solid logic directly, achieving full functionality
+with minimal effort and zero risk of subtle protocol mistakes.
+
 
 ## Table of Contents
 
@@ -248,7 +266,9 @@ user.login_custom(handler)!
 
 ## Update handling
 
-Register typed update handlers before entering the main loop. Each handler runs in its own goroutine so you can call any synchronous API method inside it.
+Register typed update handlers before entering the main loop.
+Each handler runs in its own goroutine so you can call any
+synchronous API method inside it.
 
 ```v
 bot.on('updateNewMessage', fn [mut bot] (upd json2.Any) {
@@ -496,7 +516,9 @@ bot.send_dice_opts(chat_id, dice_emoji, tdlib.SendOptions{ silent: true })!
 
 ### Inline keyboards
 
-Inline keyboards attach buttons to a specific message. Pressing a button fires `updateNewCallbackQuery` (or opens a URL) and does **not** send a message.
+Inline keyboards attach buttons to a specific message.
+Pressing a button fires `updateNewCallbackQuery` (or opens a URL)
+and does **not** send a message.
 
 ```v
 markup := tdlib.inline_keyboard_markup([
@@ -547,7 +569,8 @@ bot.on('updateNewCallbackQuery', fn [mut bot] (upd json2.Any) {
 
 ### Reply keyboards
 
-Reply keyboards show persistent buttons below the text input box. Pressing a button sends its text as a normal message.
+Reply keyboards show persistent buttons below the text input box.
+Pressing a button sends its text as a normal message.
 
 ```v
 markup := tdlib.reply_keyboard_markup([
@@ -806,7 +829,9 @@ Available on both `UserAccount` and `BotAccount`.
 
 ## Extended supergroup and channel information
 
-`getSupergroupFullInfo` returns description, member counts, invite link, profile photo, and more. Pass the bare `supergroup_id` from `Chat.supergroup_id()`:
+`getSupergroupFullInfo` returns description, member counts,
+invite link, profile photo, and more.
+Pass the bare `supergroup_id` from `Chat.supergroup_id()`:
 
 ```v
 chat  := user.get_chat(chat_id)!
@@ -910,7 +935,9 @@ bot.promote_chat_member(chat_id, user_id, tdlib.full_admin_rights(), 'Moderator'
 bot.demote_chat_member(chat_id, user_id)!
 ```
 
-`full_admin_rights()` returns an `AdminRights` with every permission set to `true`. Build a custom `AdminRights` struct to restrict which rights are granted.
+`full_admin_rights()` returns an `AdminRights` with every
+permission set to `true`. Build a custom `AdminRights`
+struct to restrict which rights are granted.
 
 ---
 
@@ -951,7 +978,8 @@ Supergroup member filter constants:
 
 ## Chat folders
 
-Chat folders are only available on user accounts. Bots have no chat list concept.
+Chat folders are only available on user accounts.
+Bots have no chat list concept.
 
 ### Listing folders
 
@@ -1057,7 +1085,10 @@ println(link)           // https://t.me/addlist/...
 
 ## Scheduled messages
 
-Messages can be held back and delivered at a specified Unix timestamp. Scheduled messages appear in the chat's "Scheduled Messages" list until sent or cancelled. All content types (text, photos, documents) support scheduling.
+Messages can be held back and delivered at a specified Unix timestamp.
+Scheduled messages appear in the chat's "Scheduled Messages" list
+until sent or cancelled.
+All content types (text, photos, documents) support scheduling.
 
 ```v
 // Schedule a plain-text message to go out in one hour.
@@ -1105,7 +1136,11 @@ Scheduled messages are available on both `UserAccount` and `BotAccount`.
 
 ## Forum topics
 
-Forum topics are named threads inside supergroups that have the "Topics" feature enabled. Each topic is identified by a `message_thread_id`. Pass this ID in `SendOptions.message_thread_id` to send messages to the topic.
+Forum topics are named threads inside supergroups that have
+the "Topics" feature enabled. Each topic is identified by
+a `message_thread_id`.
+Pass this ID in `SendOptions.message_thread_id` to send
+messages to the topic.
 
 ### Creating and sending to a topic
 
@@ -1161,7 +1196,9 @@ user.hide_general_forum_topic(chat_id, true)!
 user.delete_forum_topic(chat_id, thread_id)!
 ```
 
-Forum topics are available on both `UserAccount` and `BotAccount` (bots require `can_manage_topics` admin right for most management operations).
+Forum topics are available on both `UserAccount` and
+`BotAccount` (bots require `can_manage_topics` admin
+right for most management operations).
 
 | Method | Returns | Description |
 |---|---|---|
@@ -1180,7 +1217,10 @@ Forum topics are available on both `UserAccount` and `BotAccount` (bots require 
 
 ## Translation
 
-Translate text strings or existing messages to any target language using Telegram's built-in translation service. Language detection is automatic; only the target language code is needed.
+Translate text strings or existing messages to any
+target language using Telegram's built-in
+translation service. Language detection is automatic;
+only the target language code is needed.
 
 Language codes follow [IETF BCP 47](https://en.wikipedia.org/wiki/IETF_language_tag): `'en'`, `'fr'`, `'de'`, `'ja'`, `'zh-CN'`, etc.
 
@@ -1199,7 +1239,9 @@ if translated.has_entities() {
 }
 ```
 
-Translation is available on both `UserAccount` and `BotAccount`. User accounts require Telegram Premium for `translate_text` and `translate_message`. Bots do not require Premium.
+Translation is available on both `UserAccount` and `BotAccount`.
+User accounts require Telegram Premium for `translate_text` and
+`translate_message`. Bots do not require Premium.
 
 | Method | Returns | Description |
 |---|---|---|
@@ -1361,7 +1403,8 @@ user.delete_profile_photo(photo_id)!  // photo_id from get_user_profile_photos()
 
 ## AccountManager
 
-`AccountManager` runs many accounts over a single shared TDLib hub. Update routing is automatic - handlers on one account never fire for another.
+`AccountManager` runs many accounts over a single shared TDLib hub.
+Update routing is automatic - handlers on one account never fire for another.
 
 ```v
 mut mgr := tdlib.AccountManager.new()
@@ -1520,7 +1563,9 @@ c.has_protected_content()// bool
 c.member_count()        // int  (usually 0; use get_chat_member_count() instead)
 ```
 
-**Important:** Use `chat.id()` or `chat.channel_chat_id()` when passing the ID to message-level API calls. Use `chat.supergroup_id()` only for `getSupergroup*` methods.
+**Important:** Use `chat.id()` or `chat.channel_chat_id()`
+when passing the ID to message-level API calls.
+Use `chat.supergroup_id()` only for `getSupergroup*` methods.
 
 ### SupergroupFullInfo
 
@@ -1777,7 +1822,8 @@ cf.include_channels()       // bool
 
 ### ForumTopicInfo
 
-Summary of a forum topic returned by `create_forum_topic()` and embedded in `ForumTopic.info()`.
+Summary of a forum topic returned by `create_forum_topic()`
+and embedded in `ForumTopic.info()`.
 
 ```v
 fi.message_thread_id()      // i64    - use as SendOptions.message_thread_id
@@ -1876,7 +1922,8 @@ tdlib.val(42)!          // wraps any primitive as json2.Any
 
 ### Map helpers
 
-These are exported so you can work with raw `json2.Any` maps from update handlers:
+These are exported so you can work with raw 
+`json2.Any` maps from update handlers:
 
 ```v
 tdlib.map_str(m, 'key')     // string
@@ -1982,7 +2029,8 @@ rl.reset('${user_id}')       // clear history for this key
 
 ## Channel ID semantics
 
-TDLib uses two different numeric representations for channels and supergroups:
+TDLib uses two different numeric representations for
+channels and supergroups:
 
 | Representation | Form | Used by |
 |---|---|---|
